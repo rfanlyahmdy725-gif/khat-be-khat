@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خط‌به‌خط | مسیریاب حمل‌ونقل عمومی مشهد</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, Geneva, sans-serif; }
+        body { background-fcolor: #f4f6f9; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #1e3a8a; color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; boxShadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #container { flex: 1; display: flex; flex-direction: column; }
+        #map { flex: 2; width: 100%; }
+        #controls { flex: 1; background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -3px 10px rgba(0,0,0,0.1); overflow-y: auto; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .btn { background: #e5e7eb; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; transition: 0.3s; }
+        .btn.active { background: #2563eb; color: white; }
+        #info-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; font-size: 0.95rem; line-height: 1.6; }
+        .station-list { margin-top: 8px; padding-right: 15px; color: #475569; }
+    </style>
+</head>
+<body>
+
+    <header>🚌 خط‌به‌خط (نسخه مشهد)</header>
+
+    <div id="container">
+        <div id="map"></div>
+        
+        <div id="controls">
+            <p style="font-weight: bold; margin-bottom: 10px; color: #1e293b;">انتخاب خط جهت مشاهده مسیر و ایستگاه‌ها:</p>
+            <div class="btn-group">
+                <button class="btn active" onclick="showRoute('metro1', this)">🚇 مترو خط ۱</button>
+                <button class="btn" onclick="showRoute('metro2', this)">🚇 مترو خط ۲</button>
+                <button class="btn" onclick="showRoute('brt800', this)">🚌 بی‌آرتی ۸۰۰</button>
+                <button class="btn" onclick="showRoute('brt802', this)">🚌 بی‌آرتی ۸۰۲</button>
+            </div>
+            
+            <div id="info-box">
+                <div id="route-details">در حال بارگذاری اطلاعات خط ۱ مترو...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize Map centered on Mashhad
+        const map = L.map('map').setView([36.2972, 59.6067], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Simulated Database for Mashhad Transit Lines
+        const transitData = {
+            metro1: {
+                title: "🚇 مترو خط ۱ (وکیل‌آباد - فرودگاه)",
+                desc: "این خط غرب مشهد را به شرق و فرودگاه متصل می‌کند.",
+                stations: ["پایانه وکیل‌آباد", "صدا و سیما", "دانشگاه فردوسی", "میدان شریعتی (تقی‌آباد)", "بسیج", "غدیر", "فرودگاه هاشمی‌نژاد"],
+                coords: [[36.3312, 59.4872], [36.3215, 59.5230], [36.3110, 59.5445], [36.2970, 59.5840], [36.2790, 59.6260], [36.2620, 59.6450]]
+            },
+            metro2: {
+                title: "🚇 مترو خط ۲ (کوهسنگی - طبرسی)",
+                desc: "این خط شمال مشهد را به جنوب متصل کرده و در ایستگاه شریعتی با خط ۱ تقاطع دارد.",
+                stations: ["کوهسنگی", "میدان شریعتی (تقی‌آباد)", "میدان شهدا", "راه‌آهن", "شهید مفتح", "طبرسی"],
+                coords: [[36.2760, 59.5720], [36.2970, 59.5840], [36.3020, 59.6050], [36.3150, 59.6170], [36.3420, 59.6380]]
+            },
+            brt800: {
+                title: "🚌 بی‌آرتی خط ۸۰۰ (پایانه امام رضا - پایانه طبرسی)",
+                desc: "پرترددترین خط مشهد که زائران را از ترمینال مستقیماً به حرم مطهر و سپس طبرسی می‌رساند.",
+                stations: ["پایانه مسافربری امام رضا", "میدان بسیج", "بیت‌المقدس (فلکه آب - حرم)", "میدان شهدا", "پایانه طبرسی"],
+                coords: [[36.2570, 59.6150], [36.2790, 59.6260], [36.2870, 59.6160], [36.3020, 59.6050], [36.3550, 59.6480]]
+            },
+            brt802: {
+                title: "🚌 بی‌آرتی خط ۸۰۲ (پایانه الهیه - پایانه مصلی)",
+                desc: "مسیر اتوبوسرانی سریع‌السیر از غرب شهر به سمت مناطق شرقی و حرم.",
+                stations: ["پایانه الهیه", "میدان نمایشگاه", "بلوار معلم", "میدان آزادی", "حرم مطهر", "پایانه مصلی"],
+                coords: [[36.3710, 59.4620], [36.3520, 59.4950], [36.3280, 59.5310], [36.2870, 59.6160], [36.2750, 59.6410]]
+            }
+        };
+
+        let currentPolyline = null;
+
+        function showRoute(lineKey, element) {
+            // Update Active Button Style
+            document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+            if(element) element.classList.add('active');
+
+            const data = transitData[lineKey];
+            
+            // Update Text Info Box
+            let stationsHTML = "<ol class='station-list'>";
+            data.stations.forEach(st => { stationsHTML += `<li>${st}</li>`; });
+            stationsHTML += "</ol>";
+
+            document.getElementById('route-details').innerHTML = `
+                <strong style="color:#1e3a8a;">${data.title}</strong>
+                <p style="margin-top:5px; font-size:0.88rem; color:#64748b;">${data.desc}</p>
+                <p style="margin-top:10px; font-weight:bold; color:#1e293b;">ایستگاه‌های اصلی:</p>
+                ${stationsHTML}
+            `;
+
+            // Update Map Line
+            if (currentPolyline) map.removeLayer(currentPolyline);
+            currentPolyline = L.polyline(data.coords, {color: lineKey.includes('metro') ? 'blue' : 'red', weight: 5}).addTo(map);
+            map.fitBounds(currentPolyline.getBounds());
+        }
+
+        // Load First Route by Default
+        showRoute('metro1', null);
+    </script>
+</body>
+</html>
